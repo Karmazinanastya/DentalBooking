@@ -25,24 +25,25 @@ public sealed class ClinicDbContext(DbContextOptions<ClinicDbContext> options, I
 
     public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
+        var domainEvents = CollectAndClearDomainEvents();
         var result = await base.SaveChangesAsync(ct);
-        await DispatchDomainEventsAsync(ct);
+        foreach (var evt in domainEvents)
+            await mediator.Publish(evt, ct);
         return result;
     }
 
-    private async Task DispatchDomainEventsAsync(CancellationToken ct)
+    private List<IDomainEvent> CollectAndClearDomainEvents()
     {
         var aggregates = ChangeTracker.Entries<AggregateRoot<Guid>>()
             .Where(e => e.Entity.DomainEvents.Count != 0)
             .Select(e => e.Entity)
             .ToList();
 
-        foreach (var aggregate in aggregates)
-        {
-            foreach (var domainEvent in aggregate.DomainEvents)
-                await mediator.Publish(domainEvent, ct);
+        var events = aggregates
+            .SelectMany(a => a.DomainEvents)
+            .ToList();
 
-            aggregate.ClearDomainEvents();
-        }
+        aggregates.ForEach(a => a.ClearDomainEvents());
+        return events;
     }
 }

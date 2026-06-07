@@ -1,0 +1,115 @@
+@page "/appointments"
+@attribute [Authorize(Roles = "Admin")]
+@inject ApiClient Api
+
+<PageTitle>Записи — DentalBooking Admin</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-calendar-check me-2 text-primary"></i>Записи на прийом</h4>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label mb-1 small">Дата</label>
+                <input type="date" class="form-control form-control-sm" @bind="filterDate" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label mb-1 small">Клініка</label>
+                <select class="form-select form-select-sm" @bind="filterClinicId">
+                    <option value="">Усі</option>
+                    @foreach (var c in clinics ?? [])
+                    {
+                        <option value="@c.Id">@c.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-sm btn-primary" @onclick="LoadAppointments">
+                    <i class="bi bi-search me-1"></i>Фільтр
+                </button>
+                <button class="btn btn-sm btn-outline-secondary ms-1" @onclick="ClearFilter">Скинути</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center my-4"><div class="spinner-border text-primary"></div></div>
+}
+else
+{
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Дата і час</th>
+                        <th>Лікар</th>
+                        <th>Клініка</th>
+                        <th>Послуга</th>
+                        <th>Статус</th>
+                        <th>Створено</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (appointments?.Count == 0)
+                    {
+                        <tr><td colspan="6" class="text-center text-muted py-4">Записів не знайдено</td></tr>
+                    }
+                    @foreach (var a in appointments ?? [])
+                    {
+                        <tr>
+                            <td class="fw-medium">@a.LocalDateTime</td>
+                            <td>@a.DoctorFullName</td>
+                            <td>@a.ClinicName</td>
+                            <td>@(string.IsNullOrEmpty(a.ServiceName) ? "—" : a.ServiceName)</td>
+                            <td><StatusBadge Status="@a.Status" /></td>
+                            <td class="text-muted small">@a.CreatedAtUtc.ToString("dd.MM HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (appointments?.Count > 0)
+        {
+            <div class="card-footer bg-white text-muted small">
+                Всього: @appointments.Count записів
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<AppointmentDto>? appointments;
+    private List<ClinicDto>? clinics;
+    private bool isLoading = true;
+    private DateOnly? filterDate = DateOnly.FromDateTime(DateTime.Today);
+    private string filterClinicId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { clinics = await Api.GetClinicsAsync(); } catch { }
+        await LoadAppointments();
+    }
+
+    private async Task LoadAppointments()
+    {
+        isLoading = true;
+        try
+        {
+            var clinicId = Guid.TryParse(filterClinicId, out var cid) ? cid : (Guid?)null;
+            appointments = await Api.GetAllAppointmentsAsync(clinicId, filterDate);
+        }
+        finally { isLoading = false; }
+    }
+
+    private async Task ClearFilter()
+    {
+        filterDate = null;
+        filterClinicId = string.Empty;
+        await LoadAppointments();
+    }
+}

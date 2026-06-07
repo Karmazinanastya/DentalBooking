@@ -27,4 +27,6 @@ public interface ITimeSlotRepository : IRepository<TimeSlot, Guid>
         CancellationToken ct = default);
 
     Task ReleaseExpiredReservationsAsync(CancellationToken ct = default);
+
+    Task DeleteAvailableInRangeAsync(Guid doctorId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default);
 }

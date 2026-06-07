@@ -23,7 +23,8 @@ public sealed class DoctorsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> CreateDoctor([FromBody] CreateDoctorCommand command, CancellationToken ct)
     {
         var result = await mediator.Send(command, ct);
-        return result.ToCreatedResult("GetDoctorById", new { id = result.Value });
+        if (!result.IsSuccess) return result.ToActionResult();
+        return Created(string.Empty, result.Value);
     }
 
     [HttpPut("{doctorId:guid}/schedule")]

@@ -1,0 +1,171 @@
+@page "/users"
+@attribute [Authorize(Roles = "Admin")]
+@inject IdentityApiClient IdentityClient
+@inject ApiClient Api
+
+<PageTitle>Користувачі — DentalBooking Admin</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-people me-2 text-primary"></i>Користувачі</h4>
+    <button class="btn btn-primary" @onclick="ShowCreateForm">
+        <i class="bi bi-plus-lg me-1"></i>Додати користувача
+    </button>
+</div>
+
+@if (showForm)
+{
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white"><h6 class="mb-0">Новий користувач</h6></div>
+        <div class="card-body">
+            <EditForm Model="form" OnValidSubmit="CreateUser">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Email *</label>
+                        <InputText @bind-Value="form.Email" class="form-control" type="email" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Пароль *</label>
+                        <InputText @bind-Value="form.Password" class="form-control" type="password" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Роль *</label>
+                        <InputSelect @bind-Value="form.Role" class="form-select">
+                            <option value="Admin">Admin</option>
+                            <option value="Doctor">Doctor</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Ім'я *</label>
+                        <InputText @bind-Value="form.FirstName" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Прізвище</label>
+                        <InputText @bind-Value="form.LastName" class="form-control" />
+                    </div>
+                    @if (form.Role == "Doctor")
+                    {
+                        <div class="col-md-5">
+                            <label class="form-label">Клініка</label>
+                            <InputSelect @bind-Value="form.ClinicId" class="form-select">
+                                <option value="">— Оберіть —</option>
+                                @foreach (var c in clinics ?? [])
+                                {
+                                    <option value="@c.Id">@c.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(formError))
+                {
+                    <div class="alert alert-danger mt-3 py-2">@formError</div>
+                }
+                <div class="mt-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@saving">
+                        @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Створити
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => showForm = false">Скасувати</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center my-4"><div class="spinner-border text-primary"></div></div>
+}
+else
+{
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Email</th>
+                        <th>Ім'я</th>
+                        <th>Роль</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in users ?? [])
+                    {
+                        <tr>
+                            <td>@u.Email</td>
+                            <td>@u.FullName</td>
+                            <td>
+                                @foreach (var r in u.Roles)
+                                {
+                                    <span class="badge @(r == "Admin" ? "bg-primary" : "bg-success") me-1">@r</span>
+                                }
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteUser(u.Id)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible mt-3">@successMessage</div>
+}
+
+@code {
+    private List<UserDto>? users;
+    private List<ClinicDto>? clinics;
+    private bool isLoading = true, showForm, saving;
+    private string? formError, successMessage;
+    private UserFormModel form = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Reload();
+        clinics = await Api.GetClinicsAsync();
+        isLoading = false;
+    }
+
+    private async Task Reload() => users = await IdentityClient.GetUsersAsync();
+
+    private void ShowCreateForm() { form = new(); formError = null; showForm = true; }
+
+    private async Task CreateUser()
+    {
+        saving = true;
+        var (success, error) = await IdentityClient.RegisterUserAsync(new RegisterUserRequest(
+            form.Email, form.Password, form.FirstName, form.LastName,
+            form.Role, null, form.ClinicId == Guid.Empty ? null : form.ClinicId));
+        if (success)
+        {
+            showForm = false;
+            successMessage = "Користувача створено";
+            await Reload();
+        }
+        else formError = error ?? "Помилка";
+        saving = false;
+    }
+
+    private async Task DeleteUser(Guid id)
+    {
+        await IdentityClient.DeleteUserAsync(id);
+        await Reload();
+    }
+
+    private sealed class UserFormModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = "Doctor123!";
+        public string FirstName { get; set; } = string.Empty;
+        public string? LastName { get; set; }
+        public string Role { get; set; } = "Doctor";
+        public Guid ClinicId { get; set; }
+    }
+}

@@ -1,0 +1,129 @@
+@page "/services"
+@attribute [Authorize(Roles = "Admin")]
+@inject ApiClient Api
+
+<PageTitle>Послуги — DentalBooking Admin</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-clipboard2-pulse me-2 text-primary"></i>Послуги</h4>
+    <button class="btn btn-primary" @onclick="ShowCreateForm">
+        <i class="bi bi-plus-lg me-1"></i>Додати послугу
+    </button>
+</div>
+
+@if (showForm)
+{
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white"><h6 class="mb-0">Нова послуга</h6></div>
+        <div class="card-body">
+            <EditForm Model="form" OnValidSubmit="CreateService">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Назва *</label>
+                        <InputText @bind-Value="form.Name" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Категорія *</label>
+                        <InputText @bind-Value="form.Category" class="form-control" placeholder="Терапія, Гігієна..." />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Тривалість (хв) *</label>
+                        <InputNumber @bind-Value="form.DurationMinutes" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Ціна (грн) *</label>
+                        <InputNumber @bind-Value="form.Price" class="form-control" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Опис</label>
+                        <InputTextArea @bind-Value="form.Description" class="form-control" rows="2" />
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(formError))
+                {
+                    <div class="alert alert-danger mt-3 py-2">@formError</div>
+                }
+                <div class="mt-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@saving">
+                        @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Зберегти
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => showForm = false">Скасувати</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center my-4"><div class="spinner-border text-primary"></div></div>
+}
+else
+{
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Назва</th>
+                        <th>Категорія</th>
+                        <th>Тривалість</th>
+                        <th>Ціна</th>
+                        <th>Опис</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (services?.Count == 0)
+                    {
+                        <tr><td colspan="5" class="text-center text-muted py-4">Послуг ще немає</td></tr>
+                    }
+                    @foreach (var s in services ?? [])
+                    {
+                        <tr>
+                            <td>@s.Name</td>
+                            <td><span class="badge bg-light text-dark">@s.Category</span></td>
+                            <td>@s.DurationMinutes хв</td>
+                            <td>@s.Price.ToString("N0") грн</td>
+                            <td class="text-muted small">@s.Description</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ServiceDto>? services;
+    private bool isLoading = true, showForm, saving;
+    private string? formError;
+    private ServiceFormModel form = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        services = await Api.GetServicesAsync();
+        isLoading = false;
+    }
+
+    private void ShowCreateForm() { form = new(); formError = null; showForm = true; }
+
+    private async Task CreateService()
+    {
+        saving = true;
+        var (success, error) = await Api.CreateServiceAsync(new CreateServiceRequest(
+            form.Name, form.Category, form.DurationMinutes, form.Price, form.Description));
+        if (success) { showForm = false; services = await Api.GetServicesAsync(); }
+        else formError = error ?? "Помилка при збереженні";
+        saving = false;
+    }
+
+    private sealed class ServiceFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public int DurationMinutes { get; set; } = 30;
+        public decimal Price { get; set; }
+        public string? Description { get; set; }
+    }
+}

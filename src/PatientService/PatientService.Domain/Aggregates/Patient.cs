@@ -25,8 +25,6 @@ public sealed class Patient : AggregateRoot<Guid>
         if (string.IsNullOrWhiteSpace(firstName))
             return Result.Failure<Patient>(Error.Validation(nameof(FirstName), "First name is required."));
 
-        if (string.IsNullOrWhiteSpace(lastName))
-            return Result.Failure<Patient>(Error.Validation(nameof(LastName), "Last name is required."));
 
         if (string.IsNullOrWhiteSpace(phoneNumber))
             return Result.Failure<Patient>(Error.Validation(nameof(PhoneNumber), "Phone number is required."));

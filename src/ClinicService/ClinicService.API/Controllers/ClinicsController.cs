@@ -21,6 +21,7 @@ public sealed class ClinicsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> CreateClinic([FromBody] CreateClinicCommand command, CancellationToken ct)
     {
         var result = await mediator.Send(command, ct);
-        return result.ToCreatedResult("GetClinicById", new { id = result.Value });
+        if (!result.IsSuccess) return result.ToActionResult();
+        return Created(string.Empty, result.Value);
     }
 }

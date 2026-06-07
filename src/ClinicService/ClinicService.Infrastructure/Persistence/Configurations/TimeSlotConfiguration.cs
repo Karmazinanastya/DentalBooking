@@ -19,6 +19,5 @@ internal sealed class TimeSlotConfiguration : IEntityTypeConfiguration<TimeSlot>
         builder.HasIndex(t => new { t.DoctorId, t.Status });
         builder.HasIndex(t => t.Status);
 
-        builder.ToTable(t => t.HasCheckConstraint("CK_TimeSlots_EndAfterStart", "end_utc > start_utc"));
     }
 }

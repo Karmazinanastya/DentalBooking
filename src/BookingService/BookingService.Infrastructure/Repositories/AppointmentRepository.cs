@@ -26,6 +26,21 @@ internal sealed class AppointmentRepository(BookingDbContext db) : IAppointmentR
         return await query.OrderBy(a => a.AppointmentDateUtc).ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<Appointment>> GetAllAsync(
+        Guid? clinicId, DateOnly? date, CancellationToken ct = default)
+    {
+        var query = db.Appointments.AsQueryable();
+        if (clinicId.HasValue)
+            query = query.Where(a => a.ClinicId == clinicId.Value);
+        if (date.HasValue)
+        {
+            var from = date.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            var to = date.Value.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
+            query = query.Where(a => a.AppointmentDateUtc >= from && a.AppointmentDateUtc <= to);
+        }
+        return await query.OrderByDescending(a => a.AppointmentDateUtc).ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<Appointment>> GetExpiredPendingAsync(CancellationToken ct = default) =>
         await db.Appointments
             .Where(a => a.Status == AppointmentStatus.Pending

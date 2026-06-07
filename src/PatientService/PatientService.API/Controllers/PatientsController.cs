@@ -15,6 +15,7 @@ public sealed class PatientsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> Register([FromBody] RegisterPatientCommand command, CancellationToken ct)
     {
         var result = await mediator.Send(command, ct);
+        if (!result.IsSuccess) return result.ToActionResult();
         return result.ToCreatedResult("GetPatientById", new { id = result.Value });
     }
 

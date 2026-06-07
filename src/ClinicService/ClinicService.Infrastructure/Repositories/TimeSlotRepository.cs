@@ -52,6 +52,17 @@ internal sealed class TimeSlotRepository(ClinicDbContext db) : ITimeSlotReposito
             slot.Release();
     }
 
+    public async Task DeleteAvailableInRangeAsync(Guid doctorId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default)
+    {
+        var slots = await db.TimeSlots
+            .Where(s => s.DoctorId == doctorId
+                     && s.Status == SlotStatus.Available
+                     && s.StartUtc >= fromUtc
+                     && s.StartUtc < toUtc)
+            .ToListAsync(ct);
+        db.TimeSlots.RemoveRange(slots);
+    }
+
     public async Task AddAsync(TimeSlot entity, CancellationToken ct = default) =>
         await db.TimeSlots.AddAsync(entity, ct);
 

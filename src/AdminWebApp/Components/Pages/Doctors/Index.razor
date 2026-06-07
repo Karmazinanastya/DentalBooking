@@ -1,0 +1,172 @@
+@page "/doctors"
+@attribute [Authorize(Roles = "Admin")]
+@inject ApiClient Api
+
+<PageTitle>Лікарі — DentalBooking Admin</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="bi bi-person-badge me-2 text-primary"></i>Лікарі</h4>
+    <button class="btn btn-primary" @onclick="ShowCreateForm">
+        <i class="bi bi-plus-lg me-1"></i>Додати лікаря
+    </button>
+</div>
+
+@if (showForm)
+{
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <h6 class="mb-0">Новий лікар</h6>
+        </div>
+        <div class="card-body">
+            <EditForm Model="form" OnValidSubmit="CreateDoctor">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Клініка *</label>
+                        <InputSelect @bind-Value="form.ClinicId" class="form-select">
+                            <option value="">— Оберіть клініку —</option>
+                            @foreach (var c in clinics ?? [])
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Ім'я *</label>
+                        <InputText @bind-Value="form.FirstName" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Прізвище *</label>
+                        <InputText @bind-Value="form.LastName" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Спеціалізація *</label>
+                        <InputText @bind-Value="form.Specialization" class="form-control" placeholder="Терапевт, Хірург, Гігієніст..." />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Біографія</label>
+                        <InputTextArea @bind-Value="form.Bio" class="form-control" rows="2" />
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(formError))
+                {
+                    <div class="alert alert-danger mt-3 py-2">@formError</div>
+                }
+                <div class="mt-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@saving">
+                        @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Зберегти
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => showForm = false">Скасувати</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<div class="mb-3">
+    <label class="form-label me-2">Фільтр по клініці:</label>
+    <select class="form-select d-inline-block w-auto" @onchange="FilterChanged">
+        <option value="">Усі клініки</option>
+        @foreach (var c in clinics ?? [])
+        {
+            <option value="@c.Id">@c.Name</option>
+        }
+    </select>
+</div>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center my-4"><div class="spinner-border text-primary"></div></div>
+}
+else
+{
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>ПІБ</th>
+                        <th>Спеціалізація</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (doctors?.Count == 0)
+                    {
+                        <tr><td colspan="2" class="text-center text-muted py-4">Лікарів не знайдено</td></tr>
+                    }
+                    @foreach (var d in doctors ?? [])
+                    {
+                        <tr>
+                            <td>
+                                <i class="bi bi-person-circle me-2 text-muted"></i>@d.FullName
+                            </td>
+                            <td><span class="badge bg-light text-dark">@d.Specialization</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ClinicDto>? clinics;
+    private List<DoctorDto>? doctors;
+    private bool isLoading = true;
+    private bool showForm, saving;
+    private string? formError;
+    private DoctorFormModel form = new();
+    private Guid? selectedClinicId;
+
+    [SupplyParameterFromQuery(Name = "clinicId")]
+    private string? ClinicIdParam { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        clinics = await Api.GetClinicsAsync();
+        if (!string.IsNullOrEmpty(ClinicIdParam) && Guid.TryParse(ClinicIdParam, out var cid))
+            selectedClinicId = cid;
+        doctors = await Api.GetDoctorsAsync(selectedClinicId);
+        isLoading = false;
+    }
+
+    private async Task FilterChanged(ChangeEventArgs e)
+    {
+        selectedClinicId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        isLoading = true;
+        doctors = await Api.GetDoctorsAsync(selectedClinicId);
+        isLoading = false;
+    }
+
+    private void ShowCreateForm()
+    {
+        form = new();
+        if (selectedClinicId.HasValue) form.ClinicId = selectedClinicId.Value;
+        formError = null;
+        showForm = true;
+    }
+
+    private async Task CreateDoctor()
+    {
+        if (form.ClinicId == Guid.Empty) { formError = "Оберіть клініку"; return; }
+        saving = true;
+        var (success, error) = await Api.CreateDoctorAsync(new CreateDoctorRequest(
+            form.ClinicId, form.FirstName, form.LastName, form.Specialization, form.Bio));
+        if (success)
+        {
+            showForm = false;
+            doctors = await Api.GetDoctorsAsync(selectedClinicId);
+        }
+        else formError = error ?? "Помилка при збереженні";
+        saving = false;
+    }
+
+    private sealed class DoctorFormModel
+    {
+        public Guid ClinicId { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Specialization { get; set; } = string.Empty;
+        public string? Bio { get; set; }
+    }
+}

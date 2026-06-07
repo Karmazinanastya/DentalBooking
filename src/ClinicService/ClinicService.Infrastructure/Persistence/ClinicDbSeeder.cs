@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ClinicService.Application.Clinics.Commands.CreateClinic;
 using ClinicService.Application.Doctors.Commands.CreateDoctor;
+using ClinicService.Application.Slots.Commands.GenerateSlots;
 using ClinicService.Domain.Entities;
 using ClinicService.Domain.ValueObjects;
 
@@ -57,44 +58,45 @@ public static class ClinicDbSeeder
             clinic2, "Аліна", "Петренко", "Гігієніст", null,
             "Профілактична стоматологія та гігієна ротової порожнини."))).Value;
 
-        // ── Assign services to doctors ────────────────────────────
-        var d1 = await db.Doctors.FindAsync(doctor1);
-        d1!.AddService(sConsultation.Id, 30);
-        d1.AddService(sCleaning.Id, 60);
-        d1.AddService(sFilling.Id, 45);
+        // ── DoctorServices (direct insert, bypassing aggregate tracking) ──
+        await db.DoctorServices.AddRangeAsync(
+            DoctorService.Create(doctor1, sConsultation.Id, 30),
+            DoctorService.Create(doctor1, sCleaning.Id, 60),
+            DoctorService.Create(doctor1, sFilling.Id, 45),
+            DoctorService.Create(doctor2, sConsultation.Id, 30),
+            DoctorService.Create(doctor3, sConsultation.Id, 30),
+            DoctorService.Create(doctor3, sCleaning.Id, 60));
 
-        var d2 = await db.Doctors.FindAsync(doctor2);
-        d2!.AddService(sConsultation.Id, 30);
-
-        var d3 = await db.Doctors.FindAsync(doctor3);
-        d3!.AddService(sConsultation.Id, 30);
-        d3.AddService(sCleaning.Id, 60);
-
-        // ── Schedule templates ────────────────────────────────────
+        // ── Schedule templates (direct insert, bypassing aggregate tracking) ──
         var work = WorkingHours.Create(new TimeOnly(9, 0), new TimeOnly(18, 0)).Value;
         var lunch = WorkingHours.Create(new TimeOnly(13, 0), new TimeOnly(14, 0)).Value;
         var weekendWork = WorkingHours.Create(new TimeOnly(10, 0), new TimeOnly(15, 0)).Value;
 
-        // Ковальчук і Петренко: Пн–Пт 09:00–18:00 + Сб–Нд 10:00–15:00 (без обіду)
-        foreach (var day in new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday,
-                                    DayOfWeek.Thursday, DayOfWeek.Friday })
-        {
-            d1.SetScheduleTemplate(day, work, lunch);
-            d3.SetScheduleTemplate(day, work, lunch);
-        }
+        var weekdays = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday,
+                               DayOfWeek.Thursday, DayOfWeek.Friday };
 
-        d1.SetScheduleTemplate(DayOfWeek.Saturday, weekendWork, null);
-        d1.SetScheduleTemplate(DayOfWeek.Sunday, weekendWork, null);
-        d3.SetScheduleTemplate(DayOfWeek.Saturday, weekendWork, null);
+        // Ковальчук: Пн–Пт 09:00–18:00 + Сб–Нд 10:00–15:00
+        foreach (var day in weekdays)
+            await db.ScheduleTemplates.AddAsync(ScheduleTemplate.Create(doctor1, clinic1, day, work, lunch));
+        await db.ScheduleTemplates.AddAsync(ScheduleTemplate.Create(doctor1, clinic1, DayOfWeek.Saturday, weekendWork, null));
+        await db.ScheduleTemplates.AddAsync(ScheduleTemplate.Create(doctor1, clinic1, DayOfWeek.Sunday, weekendWork, null));
 
         // Бондаренко: тільки Пн–Пт 09:00–18:00
-        foreach (var day in new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday,
-                                    DayOfWeek.Thursday, DayOfWeek.Friday })
-        {
-            d2.SetScheduleTemplate(day, work, lunch);
-        }
+        foreach (var day in weekdays)
+            await db.ScheduleTemplates.AddAsync(ScheduleTemplate.Create(doctor2, clinic1, day, work, lunch));
 
-        // SaveChangesAsync fires DoctorScheduleUpdatedEvent → GenerateSlotsCommand (30 days ahead)
+        // Петренко: Пн–Пт 09:00–18:00 + Сб 10:00–15:00
+        foreach (var day in weekdays)
+            await db.ScheduleTemplates.AddAsync(ScheduleTemplate.Create(doctor3, clinic2, day, work, lunch));
+        await db.ScheduleTemplates.AddAsync(ScheduleTemplate.Create(doctor3, clinic2, DayOfWeek.Saturday, weekendWork, null));
+
         await db.SaveChangesAsync(CancellationToken.None);
+
+        // ── Generate slots for the next 30 days ──────────────────
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var until = today.AddDays(30);
+        await mediator.Send(new GenerateSlotsCommand(doctor1, today, until), CancellationToken.None);
+        await mediator.Send(new GenerateSlotsCommand(doctor2, today, until), CancellationToken.None);
+        await mediator.Send(new GenerateSlotsCommand(doctor3, today, until), CancellationToken.None);
     }
 }

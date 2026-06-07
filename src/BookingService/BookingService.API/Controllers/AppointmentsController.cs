@@ -5,6 +5,7 @@ using BookingService.Application.Appointments.Commands.CancelAppointment;
 using BookingService.Application.Appointments.Commands.CompleteAppointment;
 using BookingService.Application.Appointments.Commands.ConfirmAppointment;
 using BookingService.Application.Appointments.Commands.CreateAppointment;
+using BookingService.Application.Appointments.Queries.GetAllAppointments;
 using BookingService.Application.Appointments.Queries.GetPatientAppointments;
 using BookingService.Domain.Enums;
 
@@ -19,7 +20,8 @@ public sealed class AppointmentsController(IMediator mediator) : ControllerBase
         [FromBody] CreateAppointmentCommand command, CancellationToken ct)
     {
         var result = await mediator.Send(command, ct);
-        return result.ToCreatedResult("GetAppointmentById", new { id = result.Value });
+        if (!result.IsSuccess) return result.ToActionResult();
+        return Created(string.Empty, result.Value);
     }
 
     [HttpPost("{id:guid}/confirm")]
@@ -56,6 +58,16 @@ public sealed class AppointmentsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetMyAppointments([FromQuery] Guid patientId, CancellationToken ct)
     {
         var result = await mediator.Send(new GetPatientAppointmentsQuery(patientId), ct);
+        return result.ToActionResult();
+    }
+
+    [HttpGet("all")]
+    public async Task<IActionResult> GetAllAppointments(
+        [FromQuery] Guid? clinicId,
+        [FromQuery] DateOnly? date,
+        CancellationToken ct)
+    {
+        var result = await mediator.Send(new GetAllAppointmentsQuery(clinicId, date), ct);
         return result.ToActionResult();
     }
 }

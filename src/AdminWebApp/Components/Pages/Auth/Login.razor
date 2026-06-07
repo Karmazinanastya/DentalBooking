@@ -1,0 +1,88 @@
+@page "/login"
+@inject IdentityApiClient IdentityClient
+@inject AuthState AuthState
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Вхід — DentalBooking Admin</PageTitle>
+
+<div class="d-flex align-items-center justify-content-center" style="min-height:100vh;background:#f0f4f8">
+    <div class="card shadow-lg" style="width:400px">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <i class="bi bi-heart-pulse-fill text-danger" style="font-size:2.5rem"></i>
+                <h4 class="mt-2 mb-0">DentalBooking</h4>
+                <p class="text-muted small">Панель адміністратора</p>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger py-2">
+                    <i class="bi bi-exclamation-circle me-1"></i>@errorMessage
+                </div>
+            }
+
+            <EditForm Model="model" OnValidSubmit="HandleLogin">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <InputText @bind-Value="model.Email" class="form-control" placeholder="admin@dental.ua" autocomplete="email" />
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Пароль</label>
+                    <InputText @bind-Value="model.Password" type="password" class="form-control" autocomplete="current-password" />
+                </div>
+                <button type="submit" class="btn btn-primary w-100" disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    Увійти
+                </button>
+            </EditForm>
+
+            <div class="text-center mt-3 text-muted small">
+                За замовчуванням: admin@dental.ua / Admin123!
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginFormModel model = new();
+    private string? errorMessage;
+    private bool isLoading;
+
+    protected override void OnInitialized()
+    {
+        if (AuthState.IsAuthenticated)
+            Nav.NavigateTo("/");
+    }
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        var (success, data, error) = await IdentityClient.LoginAsync(new LoginRequest(model.Email, model.Password));
+
+        if (success && data is not null)
+        {
+            AuthState.SignIn(data);
+            ((CustomAuthStateProvider)AuthStateProvider).NotifyAuthStateChanged();
+            Nav.NavigateTo("/");
+        }
+        else
+        {
+            errorMessage = "Невірний email або пароль";
+        }
+
+        isLoading = false;
+    }
+
+    private sealed class LoginFormModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

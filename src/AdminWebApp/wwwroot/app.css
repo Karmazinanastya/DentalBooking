@@ -1,0 +1,29 @@
+html, body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+.nav-link.active {
+    background-color: rgba(255,255,255,.15) !important;
+    font-weight: 500;
+}
+
+.nav-link:hover {
+    background-color: rgba(255,255,255,.08) !important;
+}
+
+.card {
+    border-radius: 12px;
+}
+
+.table th {
+    font-weight: 600;
+    font-size: .85rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #6c757d;
+}
+
+.spinner-border {
+    width: 2rem;
+    height: 2rem;
+}

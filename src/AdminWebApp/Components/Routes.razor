@@ -1,0 +1,21 @@
+<Router AppAssembly="typeof(App).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(AdminWebApp.Components.Layout.MainLayout)">
+            <NotAuthorized>
+                <RedirectToLogin />
+            </NotAuthorized>
+            <Authorizing>
+                <div class="d-flex justify-content-center mt-5">
+                    <div class="spinner-border text-primary"></div>
+                </div>
+            </Authorizing>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>Не знайдено</PageTitle>
+        <LayoutView Layout="typeof(AdminWebApp.Components.Layout.MainLayout)">
+            <h2>Сторінку не знайдено</h2>
+        </LayoutView>
+    </NotFound>
+</Router>

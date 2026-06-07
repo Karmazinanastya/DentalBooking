@@ -25,6 +25,10 @@ internal sealed class GenerateSlotsCommandHandler(
         if (clinic is null)
             return Result.Failure<int>(Error.NotFound(nameof(Clinic), doctor.ClinicId));
 
+        var fromUtc = request.FromDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var toUtc = request.ToDate.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        await timeSlotRepository.DeleteAvailableInRangeAsync(request.DoctorId, fromUtc, toUtc, ct);
+
         var slots = slotGenerator.GenerateSlots(doctor, clinic, request.FromDate, request.ToDate);
 
         await timeSlotRepository.AddRangeAsync(slots, ct);

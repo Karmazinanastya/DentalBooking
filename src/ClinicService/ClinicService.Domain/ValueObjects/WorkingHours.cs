@@ -5,8 +5,10 @@ namespace ClinicService.Domain.ValueObjects;
 
 public sealed class WorkingHours : ValueObject
 {
-    public TimeOnly Start { get; }
-    public TimeOnly End { get; }
+    public TimeOnly Start { get; private set; }
+    public TimeOnly End { get; private set; }
+
+    private WorkingHours() { }
 
     private WorkingHours(TimeOnly start, TimeOnly end)
     {

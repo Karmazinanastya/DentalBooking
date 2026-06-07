@@ -12,18 +12,13 @@ internal sealed class ScheduleTemplateConfiguration : IEntityTypeConfiguration<S
         builder.HasKey(s => s.Id);
 
         builder.Property(s => s.DayOfWeek).IsRequired();
+        builder.Property(s => s.WorkStart).HasColumnName("work_start").IsRequired();
+        builder.Property(s => s.WorkEnd).HasColumnName("work_end").IsRequired();
+        builder.Property(s => s.LunchStart).HasColumnName("lunch_start");
+        builder.Property(s => s.LunchEnd).HasColumnName("lunch_end");
 
-        builder.OwnsOne(s => s.WorkingHours, wh =>
-        {
-            wh.Property(x => x.Start).HasColumnName("work_start").IsRequired();
-            wh.Property(x => x.End).HasColumnName("work_end").IsRequired();
-        });
-
-        builder.OwnsOne(s => s.LunchBreak, lb =>
-        {
-            lb.Property(x => x.Start).HasColumnName("lunch_start");
-            lb.Property(x => x.End).HasColumnName("lunch_end");
-        });
+        builder.Ignore(s => s.WorkingHours);
+        builder.Ignore(s => s.LunchBreak);
 
         builder.HasIndex(s => new { s.DoctorId, s.DayOfWeek }).IsUnique();
     }

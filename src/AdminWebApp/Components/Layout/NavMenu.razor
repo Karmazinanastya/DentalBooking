@@ -1,0 +1,70 @@
+@inject AuthState AuthState
+
+<nav class="d-flex flex-column bg-dark text-white" style="width:240px;min-height:100vh">
+    <div class="p-3 border-bottom border-secondary">
+        <i class="bi bi-heart-pulse-fill text-danger me-2"></i>
+        <strong>DentalBooking</strong>
+        <div class="text-muted small mt-1">Панель управління</div>
+    </div>
+
+    <ul class="nav flex-column p-2 flex-grow-1">
+        <li class="nav-item mb-1">
+            <NavLink class="nav-link text-white rounded" href="/" Match="NavLinkMatch.All">
+                <i class="bi bi-speedometer2 me-2"></i>Дашборд
+            </NavLink>
+        </li>
+
+        @if (AuthState.IsAdmin)
+        {
+            <li class="nav-item mt-2">
+                <small class="text-muted px-2 text-uppercase" style="font-size:.7rem">Управління</small>
+            </li>
+            <li class="nav-item mb-1">
+                <NavLink class="nav-link text-white rounded" href="/clinics">
+                    <i class="bi bi-building me-2"></i>Клініки
+                </NavLink>
+            </li>
+            <li class="nav-item mb-1">
+                <NavLink class="nav-link text-white rounded" href="/doctors">
+                    <i class="bi bi-person-badge me-2"></i>Лікарі
+                </NavLink>
+            </li>
+            <li class="nav-item mb-1">
+                <NavLink class="nav-link text-white rounded" href="/services">
+                    <i class="bi bi-clipboard2-pulse me-2"></i>Послуги
+                </NavLink>
+            </li>
+            <li class="nav-item mb-1">
+                <NavLink class="nav-link text-white rounded" href="/appointments">
+                    <i class="bi bi-calendar-check me-2"></i>Записи
+                </NavLink>
+            </li>
+            <li class="nav-item mb-1">
+                <NavLink class="nav-link text-white rounded" href="/users">
+                    <i class="bi bi-people me-2"></i>Користувачі
+                </NavLink>
+            </li>
+        }
+
+        @if (AuthState.IsDoctor)
+        {
+            <li class="nav-item mt-2">
+                <small class="text-muted px-2 text-uppercase" style="font-size:.7rem">Кабінет лікаря</small>
+            </li>
+            <li class="nav-item mb-1">
+                <NavLink class="nav-link text-white rounded" href="/doctor/schedule">
+                    <i class="bi bi-calendar3 me-2"></i>Мій розклад
+                </NavLink>
+            </li>
+        }
+    </ul>
+
+    <div class="p-3 border-top border-secondary text-muted small">
+        v1.0.0
+    </div>
+</nav>
+
+<style>
+    .nav-link:hover { background-color: rgba(255,255,255,.1) !important; }
+    .nav-link.active { background-color: rgba(255,255,255,.15) !important; }
+</style>

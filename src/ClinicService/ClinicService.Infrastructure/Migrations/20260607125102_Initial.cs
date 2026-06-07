@@ -81,7 +81,6 @@ namespace ClinicService.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_time_slots", x => x.Id);
-                    table.CheckConstraint("CK_TimeSlots_EndAfterStart", "end_utc > start_utc");
                 });
 
             migrationBuilder.CreateTable(

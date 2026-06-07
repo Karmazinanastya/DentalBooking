@@ -1,0 +1,26 @@
+@code {
+    [Parameter] public string Status { get; set; } = string.Empty;
+
+    private string BadgeClass => Status switch
+    {
+        "Pending" => "bg-warning text-dark",
+        "Confirmed" => "bg-success",
+        "CancelledByPatient" or "CancelledByClinic" => "bg-danger",
+        "Completed" => "bg-secondary",
+        "Expired" => "bg-dark",
+        _ => "bg-light text-dark"
+    };
+
+    private string Label => Status switch
+    {
+        "Pending" => "Очікує",
+        "Confirmed" => "Підтверджено",
+        "CancelledByPatient" => "Скасовано пацієнтом",
+        "CancelledByClinic" => "Скасовано клінікою",
+        "Completed" => "Завершено",
+        "Expired" => "Прострочено",
+        _ => Status
+    };
+}
+
+<span class="badge @BadgeClass">@Label</span>

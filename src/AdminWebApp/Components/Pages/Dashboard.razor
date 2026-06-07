@@ -1,0 +1,132 @@
+@page "/"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject AuthState AuthState
+
+<PageTitle>Дашборд — DentalBooking Admin</PageTitle>
+
+<h4 class="mb-4">
+    <i class="bi bi-speedometer2 me-2 text-primary"></i>Дашборд
+</h4>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary"></div>
+    </div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-primary bg-opacity-10 p-3">
+                        <i class="bi bi-building text-primary fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="fs-2 fw-bold">@clinics?.Count</div>
+                        <div class="text-muted small">Клініки</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-success bg-opacity-10 p-3">
+                        <i class="bi bi-person-badge text-success fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="fs-2 fw-bold">@doctors?.Count</div>
+                        <div class="text-muted small">Лікарі</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-info bg-opacity-10 p-3">
+                        <i class="bi bi-clipboard2-pulse text-info fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="fs-2 fw-bold">@services?.Count</div>
+                        <div class="text-muted small">Послуги</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-warning bg-opacity-10 p-3">
+                        <i class="bi bi-calendar-check text-warning fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="fs-2 fw-bold">@todayAppointments?.Count</div>
+                        <div class="text-muted small">Записи сьогодні</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (todayAppointments?.Count > 0)
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 pt-3">
+                <h6 class="mb-0"><i class="bi bi-calendar-day me-2"></i>Записи на сьогодні</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Час</th>
+                            <th>Лікар</th>
+                            <th>Клініка</th>
+                            <th>Послуга</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var a in todayAppointments.Take(10))
+                        {
+                            <tr>
+                                <td>@a.LocalDateTime</td>
+                                <td>@a.DoctorFullName</td>
+                                <td>@a.ClinicName</td>
+                                <td>@(string.IsNullOrEmpty(a.ServiceName) ? "—" : a.ServiceName)</td>
+                                <td><StatusBadge Status="@a.Status" /></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<ClinicDto>? clinics;
+    private List<DoctorDto>? doctors;
+    private List<ServiceDto>? services;
+    private List<AppointmentDto>? todayAppointments;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            clinics = await Api.GetClinicsAsync();
+            doctors = await Api.GetDoctorsAsync();
+            services = await Api.GetServicesAsync();
+            todayAppointments = await Api.GetAllAppointmentsAsync(date: today);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
