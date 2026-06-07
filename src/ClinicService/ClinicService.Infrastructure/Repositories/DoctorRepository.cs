@@ -14,6 +14,12 @@ internal sealed class DoctorRepository(ClinicDbContext db) : IDoctorRepository
             .Include(d => d.ScheduleBlocks)
             .FirstOrDefaultAsync(d => d.Id == id, ct);
 
+    public async Task<IReadOnlyList<Doctor>> GetAllActiveAsync(CancellationToken ct = default) =>
+        await db.Doctors
+            .Include(d => d.Services)
+            .Where(d => d.IsActive)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<Doctor>> GetByClinicAsync(Guid clinicId, CancellationToken ct = default) =>
         await db.Doctors
             .Include(d => d.Services)

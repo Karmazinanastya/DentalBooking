@@ -1,0 +1,272 @@
+@page "/admin/schedule/{DoctorId:guid}"
+@attribute [Authorize(Roles = "Admin")]
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Розклад лікаря — DentalBooking Admin</PageTitle>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary"></div>
+    </div>
+}
+else
+{
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <button class="btn btn-outline-secondary btn-sm" @onclick='() => Nav.NavigateTo("/doctors")'>
+            <i class="bi bi-arrow-left"></i>
+        </button>
+        <div>
+            <h4 class="mb-0">
+                <i class="bi bi-calendar3 me-2 text-primary"></i>@(schedule?.FullName ?? "Лікар")
+            </h4>
+            <small class="text-muted">Налаштування розкладу та генерація слотів</small>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Schedule grid -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-clock me-2"></i>Робочий час по днях тижня</h6>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:120px">День</th>
+                                <th>Початок</th>
+                                <th>Кінець</th>
+                                <th>Обід від</th>
+                                <th>Обід до</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in dayRows)
+                            {
+                                <tr class="@(row.IsActive ? "" : "table-light text-muted")">
+                                    <td class="align-middle">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   checked="@row.IsActive"
+                                                   @onchange="e => row.IsActive = (bool)(e.Value ?? false)" />
+                                            <label class="form-check-label fw-semibold">@row.DayName</label>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <input type="time" class="form-control form-control-sm"
+                                               value="@row.WorkStart"
+                                               @onchange="e => row.WorkStart = e.Value?.ToString() ?? row.WorkStart"
+                                               disabled="@(!row.IsActive)" />
+                                    </td>
+                                    <td>
+                                        <input type="time" class="form-control form-control-sm"
+                                               value="@row.WorkEnd"
+                                               @onchange="e => row.WorkEnd = e.Value?.ToString() ?? row.WorkEnd"
+                                               disabled="@(!row.IsActive)" />
+                                    </td>
+                                    <td>
+                                        <input type="time" class="form-control form-control-sm"
+                                               value="@row.LunchStart"
+                                               @onchange="e => row.LunchStart = e.Value?.ToString()"
+                                               disabled="@(!row.IsActive)" />
+                                    </td>
+                                    <td>
+                                        <input type="time" class="form-control form-control-sm"
+                                               value="@row.LunchEnd"
+                                               @onchange="e => row.LunchEnd = e.Value?.ToString()"
+                                               disabled="@(!row.IsActive)" />
+                                    </td>
+                                    <td class="align-middle">
+                                        @if (row.IsActive)
+                                        {
+                                            <button class="btn btn-sm btn-primary" @onclick="() => SaveDay(row)"
+                                                    disabled="@row.Saving">
+                                                @if (row.Saving)
+                                                {
+                                                    <span class="spinner-border spinner-border-sm"></span>
+                                                }
+                                                else if (row.Saved)
+                                                {
+                                                    <i class="bi bi-check-lg text-success"></i>
+                                                }
+                                                else
+                                                {
+                                                    <span>Зберегти</span>
+                                                }
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (!string.IsNullOrEmpty(scheduleError))
+                {
+                    <div class="card-footer">
+                        <div class="alert alert-danger py-2 mb-0">@scheduleError</div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Generate slots -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-lightning me-2 text-warning"></i>Генерація слотів</h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Генерує слоти для запису пацієнтів на основі вказаного розкладу.
+                        Існуючі вільні слоти в діапазоні будуть перезаписані.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label">З дати</label>
+                        <input type="date" class="form-control" @bind="generateFrom" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">По дату</label>
+                        <input type="date" class="form-control" @bind="generateTo" />
+                    </div>
+                    <button class="btn btn-warning w-100" @onclick="GenerateSlots" disabled="@generating">
+                        @if (generating)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-lightning me-2"></i>
+                        }
+                        Генерувати слоти
+                    </button>
+
+                    @if (generatedCount.HasValue)
+                    {
+                        <div class="alert alert-success mt-3 py-2 mb-0">
+                            <i class="bi bi-check-circle me-1"></i>
+                            Згенеровано <strong>@generatedCount</strong> слотів
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(generateError))
+                    {
+                        <div class="alert alert-danger mt-3 py-2 mb-0">@generateError</div>
+                    }
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm mt-3">
+                <div class="card-body">
+                    <h6 class="mb-2"><i class="bi bi-info-circle me-2 text-info"></i>Як це працює</h6>
+                    <ol class="text-muted small mb-0">
+                        <li>Налаштуйте робочі дні та години</li>
+                        <li>Збережіть кожен день окремо</li>
+                        <li>Оберіть діапазон дат</li>
+                        <li>Натисніть "Генерувати"</li>
+                        <li>Пацієнти зможуть записуватись</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid DoctorId { get; set; }
+
+    private DoctorScheduleDto? schedule;
+    private List<DayRow> dayRows = [];
+    private bool isLoading = true;
+    private string? scheduleError, generateError;
+    private bool generating;
+    private int? generatedCount;
+    private DateOnly generateFrom = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly generateTo = DateOnly.FromDateTime(DateTime.Today.AddDays(30));
+
+    private static readonly (DayOfWeek Day, string Name)[] WeekDays =
+    [
+        (DayOfWeek.Monday, "Пн"),
+        (DayOfWeek.Tuesday, "Вт"),
+        (DayOfWeek.Wednesday, "Ср"),
+        (DayOfWeek.Thursday, "Чт"),
+        (DayOfWeek.Friday, "Пт"),
+        (DayOfWeek.Saturday, "Сб"),
+        (DayOfWeek.Sunday, "Нд"),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            schedule = await Api.GetDoctorScheduleAsync(DoctorId);
+            BuildRows();
+        }
+        finally { isLoading = false; }
+    }
+
+    private void BuildRows()
+    {
+        dayRows = WeekDays.Select(wd =>
+        {
+            var existing = schedule?.Days.FirstOrDefault(d => d.DayOfWeek == wd.Day);
+            return new DayRow
+            {
+                DayOfWeek = wd.Day,
+                DayName = wd.Name,
+                IsActive = existing is not null,
+                WorkStart = existing?.WorkStart ?? "09:00",
+                WorkEnd = existing?.WorkEnd ?? "18:00",
+                LunchStart = existing?.LunchStart,
+                LunchEnd = existing?.LunchEnd,
+            };
+        }).ToList();
+    }
+
+    private async Task SaveDay(DayRow row)
+    {
+        row.Saving = true;
+        row.Saved = false;
+        scheduleError = null;
+        var (ok, err) = await Api.SetDoctorScheduleAsync(
+            DoctorId, row.DayOfWeek,
+            row.WorkStart, row.WorkEnd,
+            row.LunchStart, row.LunchEnd);
+        row.Saving = false;
+        if (ok)
+        {
+            row.Saved = true;
+            await Task.Delay(2000);
+            row.Saved = false;
+        }
+        else scheduleError = err;
+        StateHasChanged();
+    }
+
+    private async Task GenerateSlots()
+    {
+        generating = true;
+        generatedCount = null;
+        generateError = null;
+        var (ok, count, err) = await Api.GenerateSlotsAsync(DoctorId, generateFrom, generateTo);
+        generating = false;
+        if (ok) generatedCount = count;
+        else generateError = err;
+    }
+
+    private sealed class DayRow
+    {
+        public DayOfWeek DayOfWeek { get; set; }
+        public string DayName { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+        public string WorkStart { get; set; } = "09:00";
+        public string WorkEnd { get; set; } = "18:00";
+        public string? LunchStart { get; set; }
+        public string? LunchEnd { get; set; }
+        public bool Saving { get; set; }
+        public bool Saved { get; set; }
+    }
+}

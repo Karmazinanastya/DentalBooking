@@ -11,7 +11,7 @@ internal sealed class GetAllAppointmentsQueryHandler(IAppointmentRepository appo
     public async Task<Result<IReadOnlyList<AppointmentDto>>> Handle(
         GetAllAppointmentsQuery request, CancellationToken ct)
     {
-        var appointments = await appointmentRepository.GetAllAsync(request.ClinicId, request.Date, ct);
+        var appointments = await appointmentRepository.GetAllAsync(request.ClinicId, request.Date, request.DoctorId, ct);
 
         var dtos = appointments.Select(a =>
         {

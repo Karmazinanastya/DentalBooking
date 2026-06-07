@@ -1,6 +1,7 @@
 @page "/doctors"
 @attribute [Authorize(Roles = "Admin")]
 @inject ApiClient Api
+@inject NavigationManager Nav
 
 <PageTitle>Лікарі — DentalBooking Admin</PageTitle>
 
@@ -87,12 +88,13 @@ else
                     <tr>
                         <th>ПІБ</th>
                         <th>Спеціалізація</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     @if (doctors?.Count == 0)
                     {
-                        <tr><td colspan="2" class="text-center text-muted py-4">Лікарів не знайдено</td></tr>
+                        <tr><td colspan="3" class="text-center text-muted py-4">Лікарів не знайдено</td></tr>
                     }
                     @foreach (var d in doctors ?? [])
                     {
@@ -101,6 +103,12 @@ else
                                 <i class="bi bi-person-circle me-2 text-muted"></i>@d.FullName
                             </td>
                             <td><span class="badge bg-light text-dark">@d.Specialization</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary"
+                                        @onclick='() => Nav.NavigateTo($"/admin/schedule/{d.Id}")'>
+                                    <i class="bi bi-calendar3 me-1"></i>Розклад
+                                </button>
+                            </td>
                         </tr>
                     }
                 </tbody>

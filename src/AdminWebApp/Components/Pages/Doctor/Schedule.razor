@@ -1,0 +1,240 @@
+@page "/doctor/schedule"
+@attribute [Authorize(Roles = "Doctor")]
+@inject ApiClient Api
+@inject AuthState AuthState
+
+<PageTitle>Мій розклад — DentalBooking</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">
+        <i class="bi bi-calendar3 me-2 text-primary"></i>Мій розклад
+    </h4>
+    <span class="text-muted small">@AuthState.CurrentUser?.FullName</span>
+</div>
+
+@if (AuthState.CurrentUser?.DoctorId is null)
+{
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        Ваш акаунт не прив'язаний до запису лікаря. Зверніться до адміністратора.
+    </div>
+}
+else
+{
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm @(view == "today" ? "btn-primary" : "btn-outline-primary")"
+                                @onclick='() => SetView("today")'>
+                            Сьогодні
+                        </button>
+                        <button class="btn btn-sm @(view == "week" ? "btn-primary" : "btn-outline-primary")"
+                                @onclick='() => SetView("week")'>
+                            Цей тиждень
+                        </button>
+                        <button class="btn btn-sm @(view == "date" ? "btn-primary" : "btn-outline-primary")"
+                                @onclick='() => SetView("date")'>
+                            Дата
+                        </button>
+                    </div>
+                </div>
+                @if (view == "date")
+                {
+                    <div class="col-auto">
+                        <input type="date" class="form-control form-control-sm" @bind="filterDate"
+                               @bind:after="LoadAppointments" />
+                    </div>
+                }
+                else if (view == "week")
+                {
+                    <div class="col-auto">
+                        <span class="text-muted small">
+                            @weekStart.ToString("dd.MM") – @weekStart.AddDays(6).ToString("dd.MM.yyyy")
+                        </span>
+                        <button class="btn btn-sm btn-outline-secondary ms-2" @onclick="PrevWeek">‹</button>
+                        <button class="btn btn-sm btn-outline-secondary ms-1" @onclick="NextWeek">›</button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    }
+    else if (view == "week")
+    {
+        <div class="row g-2">
+            @for (int i = 0; i < 7; i++)
+            {
+                var day = weekStart.AddDays(i);
+                var dayApps = appointments?
+                    .Where(a => DateOnly.FromDateTime(a.AppointmentDateUtc.ToLocalTime()) == day)
+                    .ToList() ?? [];
+                var isToday = day == DateOnly.FromDateTime(DateTime.Today);
+                <div class="col">
+                    <div class="card border-0 @(isToday ? "border-primary border" : "") shadow-sm h-100">
+                        <div class="card-header py-2 @(isToday ? "bg-primary text-white" : "bg-light") text-center">
+                            <div class="small fw-semibold">@day.ToString("ddd", new System.Globalization.CultureInfo("uk-UA"))</div>
+                            <div class="fw-bold">@day.Day</div>
+                        </div>
+                        <div class="card-body p-2">
+                            @if (dayApps.Count == 0)
+                            {
+                                <p class="text-muted small text-center mb-0 py-2">—</p>
+                            }
+                            @foreach (var a in dayApps)
+                            {
+                                <div class="mb-1 p-2 rounded border @GetStatusBorder(a.Status)">
+                                    <div class="fw-semibold small">@a.LocalDateTime.Split(' ').LastOrDefault()</div>
+                                    <div class="text-muted" style="font-size:.75rem">
+                                        @(string.IsNullOrEmpty(a.ServiceName) ? "Без послуги" : a.ServiceName)
+                                    </div>
+                                    <StatusBadge Status="@a.Status" />
+                                </div>
+                            }
+                        </div>
+                        @if (dayApps.Count > 0)
+                        {
+                            <div class="card-footer bg-white py-1 text-center">
+                                <small class="text-muted">@dayApps.Count зап.</small>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">
+                    @(view == "today"
+                        ? $"Сьогодні, {DateTime.Today:dd MMMM yyyy}"
+                        : filterDate.ToString("dd MMMM yyyy"))
+                </span>
+                <span class="badge bg-primary rounded-pill">@(appointments?.Count ?? 0)</span>
+            </div>
+            @if (appointments?.Count == 0)
+            {
+                <div class="card-body text-center text-muted py-5">
+                    <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>
+                    Записів на цей день немає
+                </div>
+            }
+            else
+            {
+                <div class="list-group list-group-flush">
+                    @foreach (var a in appointments ?? [])
+                    {
+                        <div class="list-group-item px-4 py-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="fw-bold fs-5 text-primary">
+                                        @a.LocalDateTime.Split(' ').LastOrDefault()
+                                    </div>
+                                    <div class="text-muted small">@a.LocalDateTime.Split(' ').FirstOrDefault()</div>
+                                </div>
+                                <StatusBadge Status="@a.Status" />
+                            </div>
+                            <div class="mt-2">
+                                <div>
+                                    <i class="bi bi-clipboard2-pulse me-1 text-muted"></i>
+                                    @(string.IsNullOrEmpty(a.ServiceName) ? "Послугу не вказано" : a.ServiceName)
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    <i class="bi bi-building me-1"></i>@a.ClinicName
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private List<AppointmentDto>? appointments;
+    private bool isLoading = true;
+    private string view = "today";
+    private DateOnly filterDate = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly weekStart = GetWeekStart(DateOnly.FromDateTime(DateTime.Today));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAppointments();
+    }
+
+    private async Task SetView(string newView)
+    {
+        view = newView;
+        await LoadAppointments();
+    }
+
+    private async Task PrevWeek()
+    {
+        weekStart = weekStart.AddDays(-7);
+        await LoadAppointments();
+    }
+
+    private async Task NextWeek()
+    {
+        weekStart = weekStart.AddDays(7);
+        await LoadAppointments();
+    }
+
+    private async Task LoadAppointments()
+    {
+        isLoading = true;
+        var doctorId = AuthState.CurrentUser?.DoctorId;
+        if (doctorId is null) { isLoading = false; return; }
+
+        try
+        {
+            if (view == "today")
+            {
+                var today = DateOnly.FromDateTime(DateTime.Today);
+                appointments = await Api.GetAllAppointmentsAsync(date: today, doctorId: doctorId);
+            }
+            else if (view == "date")
+            {
+                appointments = await Api.GetAllAppointmentsAsync(date: filterDate, doctorId: doctorId);
+            }
+            else // week — load entire week at once
+            {
+                appointments = await Api.GetAllAppointmentsAsync(doctorId: doctorId);
+                appointments = appointments?
+                    .Where(a =>
+                    {
+                        var d = DateOnly.FromDateTime(a.AppointmentDateUtc.ToLocalTime());
+                        return d >= weekStart && d <= weekStart.AddDays(6);
+                    })
+                    .ToList();
+            }
+        }
+        finally { isLoading = false; }
+    }
+
+    private static DateOnly GetWeekStart(DateOnly date)
+    {
+        var dow = (int)date.DayOfWeek;
+        var offset = dow == 0 ? -6 : 1 - dow; // Monday as week start
+        return date.AddDays(offset);
+    }
+
+    private static string GetStatusBorder(string status) => status switch
+    {
+        "Confirmed" => "border-success",
+        "Pending"   => "border-warning",
+        "Cancelled" or "CancelledByPatient" or "CancelledByClinic" => "border-danger",
+        "Completed" => "border-secondary",
+        _           => "border-light"
+    };
+}

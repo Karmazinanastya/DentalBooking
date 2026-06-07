@@ -5,6 +5,7 @@ public enum BotState
     Idle,
     AwaitingPhone,
     SelectingClinic,
+    SelectingService,
     SelectingDoctor,
     SelectingDate,
     SelectingSlot,

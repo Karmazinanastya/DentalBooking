@@ -42,7 +42,7 @@ internal sealed class CreateAppointmentCommandHandler(
             slot.ClinicName,
             slot.ClinicAddress,
             slot.ClinicTimeZoneId,
-            slot.ServiceName,
+            request.ServiceName ?? slot.ServiceName,
             slot.StartUtc);
 
         await appointmentRepository.AddAsync(appointment, ct);

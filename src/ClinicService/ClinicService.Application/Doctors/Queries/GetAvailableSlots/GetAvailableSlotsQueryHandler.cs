@@ -2,6 +2,7 @@ using MediatR;
 using Shared.BuildingBlocks.Common;
 using ClinicService.Domain.Aggregates;
 using ClinicService.Domain.Repositories;
+using ClinicService.Domain.Services;
 
 namespace ClinicService.Application.Doctors.Queries.GetAvailableSlots;
 
@@ -21,7 +22,7 @@ internal sealed class GetAvailableSlotsQueryHandler(
         if (clinic is null)
             return Result.Failure<IReadOnlyList<SlotDto>>(Error.NotFound(nameof(Clinic), doctor.ClinicId));
 
-        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(clinic.TimeZoneId);
+        var timeZone = TimeZoneHelper.Find(clinic.TimeZoneId);
         var slots = await timeSlotRepository.GetAvailableAsync(request.DoctorId, request.Date, ct);
 
         var dtos = slots.Select(s => new SlotDto(

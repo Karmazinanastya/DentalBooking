@@ -10,9 +10,19 @@ public sealed class ClinicApiClient(HttpClient http)
         return result ?? [];
     }
 
-    public async Task<IReadOnlyList<DoctorResponse>> GetDoctorsByClinicAsync(Guid clinicId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<DoctorResponse>> GetDoctorsByClinicAsync(
+        Guid clinicId, Guid? serviceId = null, CancellationToken ct = default)
     {
-        var result = await http.GetFromJsonAsync<List<DoctorResponse>>($"api/doctors?clinicId={clinicId}", ct);
+        var url = serviceId.HasValue
+            ? $"api/doctors?clinicId={clinicId}&serviceId={serviceId}"
+            : $"api/doctors?clinicId={clinicId}";
+        var result = await http.GetFromJsonAsync<List<DoctorResponse>>(url, ct);
+        return result ?? [];
+    }
+
+    public async Task<IReadOnlyList<ServiceResponse>> GetServicesAsync(CancellationToken ct = default)
+    {
+        var result = await http.GetFromJsonAsync<List<ServiceResponse>>("api/services", ct);
         return result ?? [];
     }
 

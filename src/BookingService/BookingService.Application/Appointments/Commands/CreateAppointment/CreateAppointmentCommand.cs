@@ -6,5 +6,6 @@ namespace BookingService.Application.Appointments.Commands.CreateAppointment;
 public sealed record CreateAppointmentCommand(
     Guid PatientId,
     long PatientChatId,
-    Guid SlotId
+    Guid SlotId,
+    string? ServiceName = null
 ) : IRequest<Result<Guid>>;

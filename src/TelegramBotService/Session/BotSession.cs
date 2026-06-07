@@ -6,6 +6,8 @@ public sealed class BotSession
     public Guid PatientId { get; set; }
     public Guid? SelectedClinicId { get; set; }
     public string? SelectedClinicName { get; set; }
+    public Guid? SelectedServiceId { get; set; }
+    public string? SelectedServiceName { get; set; }
     public Guid? SelectedDoctorId { get; set; }
     public string? SelectedDoctorName { get; set; }
     public DateOnly? SelectedDate { get; set; }

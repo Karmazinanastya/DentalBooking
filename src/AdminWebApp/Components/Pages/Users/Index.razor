@@ -44,13 +44,25 @@
                     </div>
                     @if (form.Role == "Doctor")
                     {
-                        <div class="col-md-5">
+                        <div class="col-md-4">
                             <label class="form-label">Клініка</label>
-                            <InputSelect @bind-Value="form.ClinicId" class="form-select">
+                            <InputSelect @bind-Value="form.ClinicId" class="form-select"
+                                         @bind-Value:after="OnClinicChanged">
                                 <option value="">— Оберіть —</option>
                                 @foreach (var c in clinics ?? [])
                                 {
                                     <option value="@c.Id">@c.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">Лікар</label>
+                            <InputSelect @bind-Value="form.DoctorId" class="form-select"
+                                         disabled="@(form.ClinicId == Guid.Empty)">
+                                <option value="">— Оберіть —</option>
+                                @foreach (var d in doctorsByClinic ?? [])
+                                {
+                                    <option value="@d.Id">@d.FullName (@d.Specialization)</option>
                                 }
                             </InputSelect>
                         </div>
@@ -122,27 +134,42 @@ else
 @code {
     private List<UserDto>? users;
     private List<ClinicDto>? clinics;
+    private List<DoctorDto>? doctorsByClinic;
     private bool isLoading = true, showForm, saving;
     private string? formError, successMessage;
     private UserFormModel form = new();
 
     protected override async Task OnInitializedAsync()
     {
-        await Reload();
-        clinics = await Api.GetClinicsAsync();
-        isLoading = false;
+        try
+        {
+            await Reload();
+            clinics = await Api.GetClinicsAsync();
+        }
+        finally { isLoading = false; }
     }
 
     private async Task Reload() => users = await IdentityClient.GetUsersAsync();
 
-    private void ShowCreateForm() { form = new(); formError = null; showForm = true; }
+    private void ShowCreateForm() { form = new(); formError = null; doctorsByClinic = null; showForm = true; }
+
+    private async Task OnClinicChanged()
+    {
+        doctorsByClinic = null;
+        form.DoctorId = Guid.Empty;
+        if (form.ClinicId != Guid.Empty)
+            doctorsByClinic = await Api.GetDoctorsAsync(form.ClinicId);
+    }
 
     private async Task CreateUser()
     {
         saving = true;
+        formError = null;
         var (success, error) = await IdentityClient.RegisterUserAsync(new RegisterUserRequest(
             form.Email, form.Password, form.FirstName, form.LastName,
-            form.Role, null, form.ClinicId == Guid.Empty ? null : form.ClinicId));
+            form.Role,
+            form.DoctorId == Guid.Empty ? null : form.DoctorId,
+            form.ClinicId == Guid.Empty ? null : form.ClinicId));
         if (success)
         {
             showForm = false;
@@ -156,6 +183,7 @@ else
     private async Task DeleteUser(Guid id)
     {
         await IdentityClient.DeleteUserAsync(id);
+        successMessage = null;
         await Reload();
     }
 
@@ -167,5 +195,6 @@ else
         public string? LastName { get; set; }
         public string Role { get; set; } = "Doctor";
         public Guid ClinicId { get; set; }
+        public Guid DoctorId { get; set; }
     }
 }

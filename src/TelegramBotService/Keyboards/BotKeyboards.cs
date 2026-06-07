@@ -29,10 +29,16 @@ public static class BotKeyboards
             InlineKeyboardButton.WithCallbackData($"🏥 {c.Name} — {c.City}", $"clinic_{c.Id}")
         }));
 
+    public static InlineKeyboardMarkup FromServices(IReadOnlyList<ServiceResponse> services) =>
+        new(services.Select(s => new[]
+        {
+            InlineKeyboardButton.WithCallbackData($"🦷 {s.Name} ({s.Category})", $"service_{s.Id}")
+        }));
+
     public static InlineKeyboardMarkup FromDoctors(IReadOnlyList<DoctorResponse> doctors) =>
         new(doctors.Select(d => new[]
         {
-            InlineKeyboardButton.WithCallbackData($"👨‍⚕️ {d.FullName} ({d.Specialization})", $"doctor_{d.Id}|{d.FullName}")
+            InlineKeyboardButton.WithCallbackData($"👨‍⚕️ {d.FullName} ({d.Specialization})", $"doctor_{d.Id}")
         }));
 
     public static InlineKeyboardMarkup DatePicker(int daysAhead = 7)

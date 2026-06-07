@@ -226,13 +226,37 @@ public sealed class UpdateHandler(
         {
             var clinicId = Guid.Parse(data[7..]);
             session.SelectedClinicId = clinicId;
+            session.State = BotState.SelectingService;
+            await sessions.SaveAsync(chatId, session);
+
+            var services = await clinicApi.GetServicesAsync(ct);
+            if (services.Count == 0)
+            {
+                await bot.SendMessage(chatId, "Наразі послуги недоступні. Спробуйте пізніше.",
+                    replyMarkup: BotKeyboards.MainMenu, cancellationToken: ct);
+                session.State = BotState.Idle;
+                await sessions.SaveAsync(chatId, session);
+                return;
+            }
+
+            await bot.SendMessage(chatId, "Оберіть послугу:",
+                replyMarkup: BotKeyboards.FromServices(services), cancellationToken: ct);
+            return;
+        }
+
+        if (data.StartsWith("service_") && session.State == BotState.SelectingService)
+        {
+            session.SelectedServiceId = Guid.Parse(data[8..]);
+            var allServices = await clinicApi.GetServicesAsync(ct);
+            session.SelectedServiceName = allServices.FirstOrDefault(s => s.Id == session.SelectedServiceId)?.Name ?? string.Empty;
             session.State = BotState.SelectingDoctor;
             await sessions.SaveAsync(chatId, session);
 
-            var doctors = await clinicApi.GetDoctorsByClinicAsync(clinicId, ct);
+            var doctors = await clinicApi.GetDoctorsByClinicAsync(
+                session.SelectedClinicId!.Value, session.SelectedServiceId, ct);
             if (doctors.Count == 0)
             {
-                await bot.SendMessage(chatId, "У цій клініці немає доступних лікарів. Оберіть іншу.",
+                await bot.SendMessage(chatId, "У цій клініці немає лікарів для обраної послуги. Оберіть іншу клініку або послугу.",
                     replyMarkup: await GetClinicsKeyboardAsync(ct), cancellationToken: ct);
                 session.State = BotState.SelectingClinic;
                 await sessions.SaveAsync(chatId, session);
@@ -246,9 +270,10 @@ public sealed class UpdateHandler(
 
         if (data.StartsWith("doctor_") && session.State == BotState.SelectingDoctor)
         {
-            var parts = data[7..].Split('|');
-            session.SelectedDoctorId = Guid.Parse(parts[0]);
-            session.SelectedDoctorName = parts.Length > 1 ? parts[1] : string.Empty;
+            session.SelectedDoctorId = Guid.Parse(data[7..]);
+            var allDoctors = await clinicApi.GetDoctorsByClinicAsync(
+                session.SelectedClinicId!.Value, session.SelectedServiceId, ct);
+            session.SelectedDoctorName = allDoctors.FirstOrDefault(d => d.Id == session.SelectedDoctorId)?.FullName ?? string.Empty;
             session.State = BotState.SelectingDate;
             await sessions.SaveAsync(chatId, session);
 
@@ -289,6 +314,7 @@ public sealed class UpdateHandler(
 
             var summary =
                 $"Підтвердіть запис:\n\n" +
+                $"Послуга: {session.SelectedServiceName}\n" +
                 $"Лікар: {session.SelectedDoctorName}\n" +
                 $"Дата: {session.SelectedDate:dd.MM.yyyy}\n" +
                 $"Час: {session.SelectedSlotTime ?? "обраний"}";
@@ -349,7 +375,7 @@ public sealed class UpdateHandler(
     private async Task ConfirmBookingAsync(long chatId, BotSession session, CancellationToken ct)
     {
         var appointmentId = await bookingApi.CreateAppointmentAsync(
-            new CreateAppointmentRequest(session.PatientId, chatId, session.SelectedSlotId!.Value), ct);
+            new CreateAppointmentRequest(session.PatientId, chatId, session.SelectedSlotId!.Value, session.SelectedServiceName), ct);
 
         await bookingApi.ConfirmAsync(appointmentId, session.PatientId, ct);
 

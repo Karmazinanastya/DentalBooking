@@ -5,7 +5,7 @@ namespace ClinicService.Domain.Services;
 
 public sealed class SlotGeneratorService
 {
-    private const int SlotStepMinutes = 15;
+    private const int SlotStepMinutes = 60;
 
     public IReadOnlyList<TimeSlot> GenerateSlots(
         Doctor doctor,
@@ -13,7 +13,7 @@ public sealed class SlotGeneratorService
         DateOnly fromDate,
         DateOnly toDate)
     {
-        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(clinic.TimeZoneId);
+        var timeZone = TimeZoneHelper.Find(clinic.TimeZoneId);
         var blockedDates = doctor.ScheduleBlocks.Select(b => b.Date).ToHashSet();
         var slots = new List<TimeSlot>();
 

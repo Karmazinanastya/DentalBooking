@@ -65,9 +65,10 @@ public sealed class AppointmentsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetAllAppointments(
         [FromQuery] Guid? clinicId,
         [FromQuery] DateOnly? date,
+        [FromQuery] Guid? doctorId,
         CancellationToken ct)
     {
-        var result = await mediator.Send(new GetAllAppointmentsQuery(clinicId, date), ct);
+        var result = await mediator.Send(new GetAllAppointmentsQuery(clinicId, date, doctorId), ct);
         return result.ToActionResult();
     }
 }

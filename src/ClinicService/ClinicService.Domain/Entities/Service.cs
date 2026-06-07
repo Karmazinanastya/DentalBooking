@@ -4,8 +4,8 @@ namespace ClinicService.Domain.Entities;
 
 public sealed class Service : Entity<Guid>
 {
-    public string Name { get; private set; }
-    public string Category { get; private set; }
+    public string Name { get; private set; } = string.Empty;
+    public string Category { get; private set; } = string.Empty;
     public string? Description { get; private set; }
     public int DurationMinutes { get; private set; }
     public decimal Price { get; private set; }

@@ -68,6 +68,20 @@ public sealed record CreateDoctorRequest(
     string Specialization,
     string? Bio);
 
+public sealed record DoctorScheduleDto(
+    Guid DoctorId,
+    string FullName,
+    IReadOnlyList<ScheduleDayDto> Days);
+
+public sealed record ScheduleDayDto(
+    DayOfWeek DayOfWeek,
+    string WorkStart,
+    string WorkEnd,
+    string? LunchStart,
+    string? LunchEnd);
+
+public sealed record GenerateSlotsRequest(DateOnly FromDate, DateOnly ToDate);
+
 public sealed record CreateServiceRequest(
     string Name,
     string Category,

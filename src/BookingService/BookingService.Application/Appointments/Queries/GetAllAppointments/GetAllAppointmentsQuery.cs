@@ -6,5 +6,6 @@ namespace BookingService.Application.Appointments.Queries.GetAllAppointments;
 
 public sealed record GetAllAppointmentsQuery(
     Guid? ClinicId,
-    DateOnly? Date
+    DateOnly? Date,
+    Guid? DoctorId = null
 ) : IRequest<Result<IReadOnlyList<AppointmentDto>>>;

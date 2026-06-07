@@ -17,6 +17,8 @@ public sealed record AppointmentResponse(
     string LocalDateTime,
     string Status);
 
-public sealed record CreateAppointmentRequest(Guid PatientId, long PatientChatId, Guid SlotId);
+public sealed record ServiceResponse(Guid Id, string Name, string Category);
+
+public sealed record CreateAppointmentRequest(Guid PatientId, long PatientChatId, Guid SlotId, string? ServiceName = null);
 
 public sealed record RegisterPatientRequest(long ChatId, string FirstName, string LastName, string PhoneNumber);

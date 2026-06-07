@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using ClinicService.Application;
 using ClinicService.Infrastructure;
 using ClinicService.Infrastructure.Persistence;
@@ -5,7 +6,8 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
