@@ -34,11 +34,12 @@ public sealed class Doctor : AggregateRoot<Guid>
         string lastName,
         string specialization,
         string? photoUrl = null,
-        string? bio = null)
+        string? bio = null,
+        Guid? seedId = null)
     {
         var doctor = new Doctor
         {
-            Id = Guid.NewGuid(),
+            Id = seedId ?? Guid.NewGuid(),
             ClinicId = clinicId,
             FirstName = firstName,
             LastName = lastName,

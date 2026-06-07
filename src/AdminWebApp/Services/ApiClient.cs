@@ -1,11 +1,18 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using AdminWebApp.Models;
 
 namespace AdminWebApp.Services;
 
 public sealed class ApiClient(IHttpClientFactory httpClientFactory, AuthState authState)
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     private HttpClient CreateClient()
     {
         var client = httpClientFactory.CreateClient("api");
@@ -16,11 +23,11 @@ public sealed class ApiClient(IHttpClientFactory httpClientFactory, AuthState au
 
     // ── Clinics ──────────────────────────────────────────────────────
     public Task<List<ClinicDto>?> GetClinicsAsync() =>
-        CreateClient().GetFromJsonAsync<List<ClinicDto>>("api/clinics");
+        CreateClient().GetFromJsonAsync<List<ClinicDto>>("api/clinics", JsonOptions);
 
     public async Task<(bool Success, string? Error)> CreateClinicAsync(CreateClinicRequest request)
     {
-        var response = await CreateClient().PostAsJsonAsync("api/clinics", request);
+        var response = await CreateClient().PostAsJsonAsync("api/clinics", request, JsonOptions);
         return response.IsSuccessStatusCode ? (true, null) : (false, await response.Content.ReadAsStringAsync());
     }
 
@@ -28,10 +35,10 @@ public sealed class ApiClient(IHttpClientFactory httpClientFactory, AuthState au
     public Task<List<DoctorDto>?> GetDoctorsAsync(Guid? clinicId = null)
     {
         var url = clinicId.HasValue ? $"api/doctors?clinicId={clinicId}" : "api/doctors";
-        return CreateClient().GetFromJsonAsync<List<DoctorDto>>(url);
+        return CreateClient().GetFromJsonAsync<List<DoctorDto>>(url, JsonOptions);
     }
 
-    public async Task<(bool Success, string? Error)> CreateDoctorAsync(CreateDoctorRequest request)
+    public async Task<(bool Success, Guid? DoctorId, string? Error)> CreateDoctorAsync(CreateDoctorRequest request)
     {
         var payload = new
         {
@@ -42,13 +49,16 @@ public sealed class ApiClient(IHttpClientFactory httpClientFactory, AuthState au
             PhotoUrl = (string?)null,
             request.Bio
         };
-        var response = await CreateClient().PostAsJsonAsync("api/doctors", payload);
-        return response.IsSuccessStatusCode ? (true, null) : (false, await response.Content.ReadAsStringAsync());
+        var response = await CreateClient().PostAsJsonAsync("api/doctors", payload, JsonOptions);
+        if (!response.IsSuccessStatusCode)
+            return (false, null, await response.Content.ReadAsStringAsync());
+        var doctorId = await response.Content.ReadFromJsonAsync<Guid>(JsonOptions);
+        return (true, doctorId, null);
     }
 
     // ── Schedule & Slots ─────────────────────────────────────────────
     public Task<DoctorScheduleDto?> GetDoctorScheduleAsync(Guid doctorId) =>
-        CreateClient().GetFromJsonAsync<DoctorScheduleDto>($"api/doctors/{doctorId}/schedule");
+        CreateClient().GetFromJsonAsync<DoctorScheduleDto>($"api/doctors/{doctorId}/schedule", JsonOptions);
 
     public async Task<(bool Success, string? Error)> SetDoctorScheduleAsync(
         Guid doctorId, DayOfWeek day, string workStart, string workEnd,
@@ -63,7 +73,7 @@ public sealed class ApiClient(IHttpClientFactory httpClientFactory, AuthState au
             LunchStart = string.IsNullOrEmpty(lunchStart) ? (TimeOnly?)null : TimeOnly.Parse(lunchStart),
             LunchEnd = string.IsNullOrEmpty(lunchEnd) ? (TimeOnly?)null : TimeOnly.Parse(lunchEnd)
         };
-        var r = await CreateClient().PutAsJsonAsync($"api/doctors/{doctorId}/schedule", payload);
+        var r = await CreateClient().PutAsJsonAsync($"api/doctors/{doctorId}/schedule", payload, JsonOptions);
         return r.IsSuccessStatusCode ? (true, null) : (false, await r.Content.ReadAsStringAsync());
     }
 
@@ -72,10 +82,11 @@ public sealed class ApiClient(IHttpClientFactory httpClientFactory, AuthState au
     {
         var r = await CreateClient().PostAsJsonAsync(
             $"api/doctors/{doctorId}/slots/generate",
-            new GenerateSlotsRequest(from, to));
+            new GenerateSlotsRequest(from, to),
+            JsonOptions);
         if (r.IsSuccessStatusCode)
         {
-            var count = await r.Content.ReadFromJsonAsync<int>();
+            var count = await r.Content.ReadFromJsonAsync<int>(JsonOptions);
             return (true, count, null);
         }
         return (false, 0, await r.Content.ReadAsStringAsync());
@@ -83,11 +94,11 @@ public sealed class ApiClient(IHttpClientFactory httpClientFactory, AuthState au
 
     // ── Services ─────────────────────────────────────────────────────
     public Task<List<ServiceDto>?> GetServicesAsync() =>
-        CreateClient().GetFromJsonAsync<List<ServiceDto>>("api/services");
+        CreateClient().GetFromJsonAsync<List<ServiceDto>>("api/services", JsonOptions);
 
     public async Task<(bool Success, string? Error)> CreateServiceAsync(CreateServiceRequest request)
     {
-        var response = await CreateClient().PostAsJsonAsync("api/services", request);
+        var response = await CreateClient().PostAsJsonAsync("api/services", request, JsonOptions);
         return response.IsSuccessStatusCode ? (true, null) : (false, await response.Content.ReadAsStringAsync());
     }
 
@@ -100,7 +111,7 @@ public sealed class ApiClient(IHttpClientFactory httpClientFactory, AuthState au
         if (doctorId.HasValue) query.Add($"doctorId={doctorId}");
         if (date.HasValue) query.Add($"date={date.Value:yyyy-MM-dd}");
         var url = "api/appointments/all" + (query.Count > 0 ? "?" + string.Join("&", query) : "");
-        return CreateClient().GetFromJsonAsync<List<AppointmentDto>>(url);
+        return CreateClient().GetFromJsonAsync<List<AppointmentDto>>(url, JsonOptions);
     }
 
     public async Task<bool> CancelAppointmentAsync(Guid id, Guid patientId)

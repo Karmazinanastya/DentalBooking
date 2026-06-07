@@ -77,6 +77,36 @@ using (var scope = app.Services.CreateScope())
         await userManager.CreateAsync(admin, "Admin123!");
         await userManager.AddToRoleAsync(admin, "Admin");
     }
+
+    // Seed doctor accounts — DoctorId values match ClinicDbSeeder fixed GUIDs
+    var seedDoctors = new[]
+    {
+        (Email: "kovalchuk@dental.ua",  Password: "Doctor123!", First: "Олена",  Last: "Ковальчук",
+         DoctorId: new Guid("d0000001-0000-0000-0000-000000000001")),
+        (Email: "bondarenko@dental.ua", Password: "Doctor123!", First: "Максим", Last: "Бондаренко",
+         DoctorId: new Guid("d0000002-0000-0000-0000-000000000001")),
+        (Email: "petrenko@dental.ua",   Password: "Doctor123!", First: "Аліна",  Last: "Петренко",
+         DoctorId: new Guid("d0000003-0000-0000-0000-000000000001")),
+    };
+
+    foreach (var d in seedDoctors)
+    {
+        if (await userManager.FindByEmailAsync(d.Email) is not null)
+            continue;
+
+        var user = new AppUser
+        {
+            Id = Guid.NewGuid(),
+            UserName = d.Email,
+            Email = d.Email,
+            EmailConfirmed = true,
+            FirstName = d.First,
+            LastName = d.Last,
+            DoctorId = d.DoctorId
+        };
+        await userManager.CreateAsync(user, d.Password);
+        await userManager.AddToRoleAsync(user, "Doctor");
+    }
 }
 
 app.UseAuthentication();
