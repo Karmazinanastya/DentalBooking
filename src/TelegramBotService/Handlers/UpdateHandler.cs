@@ -65,15 +65,47 @@ public sealed class UpdateHandler(
 
         switch (text)
         {
-            case "📅 Записатися":
+            // ── Головне меню ──────────────────────────────────────
+            case "📅 Запис":
+                await bot.SendMessage(chatId, "Оберіть дію:",
+                    replyMarkup: BotKeyboards.BookingSubmenu, cancellationToken: ct);
+                break;
+            case "🦷 Послуги":
+                await bot.SendMessage(chatId, "Оберіть розділ:",
+                    replyMarkup: BotKeyboards.ServicesSubmenu, cancellationToken: ct);
+                break;
+
+            // ── Підменю «Запис» ───────────────────────────────────
+            case "📅 Запис на прийом":
                 await StartBookingFlowAsync(chatId, session, ct);
                 break;
-            case "📋 Мої записи":
-                await ShowMyAppointmentsAsync(chatId, session, ct);
+            case "🔄 Перенесення запису":
+                await bot.SendMessage(chatId,
+                    "Функція перенесення наразі недоступна.\n" +
+                    "Будь ласка, скасуйте поточний запис і створіть новий.",
+                    replyMarkup: BotKeyboards.BookingSubmenu, cancellationToken: ct);
                 break;
-            case "❌ Скасувати запис":
+            case "❌ Скасування запису":
                 await StartCancellationFlowAsync(chatId, session, ct);
                 break;
+
+            // ── Підменю «Послуги» ─────────────────────────────────
+            case "📜 Перегляд історії":
+                await ShowMyAppointmentsAsync(chatId, session, ct);
+                break;
+            case "👨‍⚕️ Перегляд лікарів":
+                await ShowDoctorsAsync(chatId, ct);
+                break;
+            case "🦷 Перегляд послуг":
+                await ShowServicesListAsync(chatId, ct);
+                break;
+
+            // ── Навігація ─────────────────────────────────────────
+            case "⬅️ Назад":
+                await bot.SendMessage(chatId, "Головне меню:",
+                    replyMarkup: BotKeyboards.MainMenu, cancellationToken: ct);
+                break;
+
             default:
                 await bot.SendMessage(chatId, "Оберіть дію з меню.",
                     replyMarkup: BotKeyboards.MainMenu, cancellationToken: ct);
@@ -172,7 +204,7 @@ public sealed class UpdateHandler(
         if (appointments.Count == 0)
         {
             await bot.SendMessage(chatId, "У вас немає записів.",
-                replyMarkup: BotKeyboards.MainMenu, cancellationToken: ct);
+                replyMarkup: BotKeyboards.ServicesSubmenu, cancellationToken: ct);
             return;
         }
 
@@ -184,7 +216,7 @@ public sealed class UpdateHandler(
             $"   Статус: {a.Status}"));
 
         await bot.SendMessage(chatId, $"Ваші записи:\n\n{text}",
-            replyMarkup: BotKeyboards.MainMenu, cancellationToken: ct);
+            replyMarkup: BotKeyboards.ServicesSubmenu, cancellationToken: ct);
     }
 
     private async Task StartCancellationFlowAsync(long chatId, BotSession session, CancellationToken ct)
@@ -203,7 +235,7 @@ public sealed class UpdateHandler(
         if (active.Count == 0)
         {
             await bot.SendMessage(chatId, "У вас немає активних записів для скасування.",
-                replyMarkup: BotKeyboards.MainMenu, cancellationToken: ct);
+                replyMarkup: BotKeyboards.BookingSubmenu, cancellationToken: ct);
             return;
         }
 
@@ -212,6 +244,42 @@ public sealed class UpdateHandler(
 
         await bot.SendMessage(chatId, "Оберіть запис для скасування:",
             replyMarkup: BotKeyboards.FromAppointments(active), cancellationToken: ct);
+    }
+
+    private async Task ShowDoctorsAsync(long chatId, CancellationToken ct)
+    {
+        var doctors = await clinicApi.GetAllDoctorsAsync(ct);
+        if (doctors.Count == 0)
+        {
+            await bot.SendMessage(chatId, "Наразі інформація про лікарів недоступна.",
+                replyMarkup: BotKeyboards.ServicesSubmenu, cancellationToken: ct);
+            return;
+        }
+
+        var text = string.Join("\n\n", doctors.Select((d, i) =>
+            $"{i + 1}. 👨‍⚕️ {d.FullName}\n" +
+            $"   Спеціалізація: {d.Specialization}"));
+
+        await bot.SendMessage(chatId, $"Наші лікарі:\n\n{text}",
+            replyMarkup: BotKeyboards.ServicesSubmenu, cancellationToken: ct);
+    }
+
+    private async Task ShowServicesListAsync(long chatId, CancellationToken ct)
+    {
+        var services = await clinicApi.GetServicesAsync(ct);
+        if (services.Count == 0)
+        {
+            await bot.SendMessage(chatId, "Наразі послуги недоступні.",
+                replyMarkup: BotKeyboards.ServicesSubmenu, cancellationToken: ct);
+            return;
+        }
+
+        var text = string.Join("\n\n", services.Select((s, i) =>
+            $"{i + 1}. 🦷 {s.Name}\n" +
+            $"   Категорія: {s.Category}"));
+
+        await bot.SendMessage(chatId, $"Наші послуги:\n\n{text}",
+            replyMarkup: BotKeyboards.ServicesSubmenu, cancellationToken: ct);
     }
 
     private async Task HandleCallbackAsync(CallbackQuery query, CancellationToken ct)

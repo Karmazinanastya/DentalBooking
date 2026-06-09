@@ -7,8 +7,29 @@ public static class BotKeyboards
 {
     public static readonly ReplyKeyboardMarkup MainMenu = new(
     [
-        [new KeyboardButton("📅 Записатися")],
-        [new KeyboardButton("📋 Мої записи"), new KeyboardButton("❌ Скасувати запис")]
+        [new KeyboardButton("📅 Запис"), new KeyboardButton("🦷 Послуги")]
+    ])
+    {
+        ResizeKeyboard = true
+    };
+
+    public static readonly ReplyKeyboardMarkup BookingSubmenu = new(
+    [
+        [new KeyboardButton("📅 Запис на прийом")],
+        [new KeyboardButton("🔄 Перенесення запису")],
+        [new KeyboardButton("❌ Скасування запису")],
+        [new KeyboardButton("⬅️ Назад")]
+    ])
+    {
+        ResizeKeyboard = true
+    };
+
+    public static readonly ReplyKeyboardMarkup ServicesSubmenu = new(
+    [
+        [new KeyboardButton("📜 Перегляд історії")],
+        [new KeyboardButton("👨‍⚕️ Перегляд лікарів")],
+        [new KeyboardButton("🦷 Перегляд послуг")],
+        [new KeyboardButton("⬅️ Назад")]
     ])
     {
         ResizeKeyboard = true
