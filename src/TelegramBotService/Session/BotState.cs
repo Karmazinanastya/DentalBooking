@@ -11,5 +11,9 @@ public enum BotState
     SelectingSlot,
     ConfirmingBooking,
     SelectingAppointmentToCancel,
-    ConfirmingCancellation
+    ConfirmingCancellation,
+    SelectingAppointmentToReschedule,
+    ReschedulingDate,
+    ReschedulingSlot,
+    ConfirmingReschedule
 }

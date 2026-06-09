@@ -80,10 +80,7 @@ public sealed class UpdateHandler(
                 await StartBookingFlowAsync(chatId, session, ct);
                 break;
             case "🔄 Перенесення запису":
-                await bot.SendMessage(chatId,
-                    "Функція перенесення наразі недоступна.\n" +
-                    "Будь ласка, скасуйте поточний запис і створіть новий.",
-                    replyMarkup: BotKeyboards.BookingSubmenu, cancellationToken: ct);
+                await StartRescheduleFlowAsync(chatId, session, ct);
                 break;
             case "❌ Скасування запису":
                 await StartCancellationFlowAsync(chatId, session, ct);
@@ -246,6 +243,51 @@ public sealed class UpdateHandler(
             replyMarkup: BotKeyboards.FromAppointments(active), cancellationToken: ct);
     }
 
+    private async Task StartRescheduleFlowAsync(long chatId, BotSession session, CancellationToken ct)
+    {
+        if (session.PatientId == Guid.Empty)
+        {
+            await bot.SendMessage(chatId, "Спочатку потрібно зареєструватися. Введіть /start.", cancellationToken: ct);
+            return;
+        }
+
+        var appointments = await bookingApi.GetMyAppointmentsAsync(session.PatientId, ct);
+        var active = appointments.Where(a => a.Status is "Confirmed" or "Pending").ToList();
+
+        if (active.Count == 0)
+        {
+            await bot.SendMessage(chatId, "У вас немає активних записів для перенесення.",
+                replyMarkup: BotKeyboards.BookingSubmenu, cancellationToken: ct);
+            return;
+        }
+
+        session.State = BotState.SelectingAppointmentToReschedule;
+        await sessions.SaveAsync(chatId, session);
+
+        await bot.SendMessage(chatId, "Оберіть запис для перенесення:",
+            replyMarkup: BotKeyboards.FromAppointmentsReschedule(active), cancellationToken: ct);
+    }
+
+    private async Task ConfirmRescheduleAsync(long chatId, BotSession session, CancellationToken ct)
+    {
+        await bookingApi.CancelByPatientAsync(session.ReschedulingAppointmentId!.Value, session.PatientId, ct);
+
+        var newId = await bookingApi.CreateAppointmentAsync(
+            new CreateAppointmentRequest(
+                session.PatientId, chatId,
+                session.ReschedulingSlotId!.Value,
+                session.ReschedulingServiceName), ct);
+
+        await bookingApi.ConfirmAsync(newId, session.PatientId, ct);
+
+        session.State = BotState.Idle;
+        await sessions.SaveAsync(chatId, session);
+
+        await bot.SendMessage(chatId,
+            "Запис успішно перенесено! Ви отримаєте сповіщення з деталями.",
+            replyMarkup: BotKeyboards.MainMenu, cancellationToken: ct);
+    }
+
     private async Task ShowDoctorsAsync(long chatId, CancellationToken ct)
     {
         var doctors = await clinicApi.GetAllDoctorsAsync(ct);
@@ -347,6 +389,93 @@ public sealed class UpdateHandler(
 
             await bot.SendMessage(chatId, "Оберіть дату:",
                 replyMarkup: BotKeyboards.DatePicker(), cancellationToken: ct);
+            return;
+        }
+
+        if (data.StartsWith("rs_") && data != "rs_yes" && data != "rs_no"
+            && session.State == BotState.SelectingAppointmentToReschedule)
+        {
+            var appointmentId = Guid.Parse(data[3..]);
+            var all = await bookingApi.GetMyAppointmentsAsync(session.PatientId, ct);
+            var appointment = all.FirstOrDefault(a => a.Id == appointmentId);
+
+            if (appointment is null)
+            {
+                await bot.SendMessage(chatId, "Запис не знайдено. Спробуйте ще раз.",
+                    replyMarkup: BotKeyboards.BookingSubmenu, cancellationToken: ct);
+                session.State = BotState.Idle;
+                await sessions.SaveAsync(chatId, session);
+                return;
+            }
+
+            session.ReschedulingAppointmentId = appointmentId;
+            session.ReschedulingDoctorId = appointment.DoctorId;
+            session.ReschedulingDoctorName = appointment.DoctorFullName;
+            session.ReschedulingServiceName = appointment.ServiceName;
+            session.State = BotState.ReschedulingDate;
+            await sessions.SaveAsync(chatId, session);
+
+            await bot.SendMessage(chatId,
+                $"Переносите: {appointment.LocalDateTime} — {appointment.DoctorFullName}\n\nОберіть нову дату:",
+                replyMarkup: BotKeyboards.DatePicker(), cancellationToken: ct);
+            return;
+        }
+
+        if (data.StartsWith("date_") && session.State == BotState.ReschedulingDate)
+        {
+            var date = DateOnly.Parse(data[5..]);
+            session.ReschedulingDate = date;
+            session.State = BotState.ReschedulingSlot;
+            await sessions.SaveAsync(chatId, session);
+
+            var slots = await clinicApi.GetAvailableSlotsAsync(session.ReschedulingDoctorId!.Value, date, ct);
+            if (slots.Count == 0)
+            {
+                await bot.SendMessage(chatId, "На цю дату немає вільних слотів. Оберіть іншу дату:",
+                    replyMarkup: BotKeyboards.DatePicker(), cancellationToken: ct);
+                session.State = BotState.ReschedulingDate;
+                await sessions.SaveAsync(chatId, session);
+                return;
+            }
+
+            await bot.SendMessage(chatId, "Оберіть новий час:",
+                replyMarkup: BotKeyboards.FromSlots(slots), cancellationToken: ct);
+            return;
+        }
+
+        if (data.StartsWith("slot_") && session.State == BotState.ReschedulingSlot)
+        {
+            var slotParts = data[5..].Split('|');
+            session.ReschedulingSlotId = Guid.Parse(slotParts[0]);
+            session.ReschedulingSlotTime = slotParts.Length > 1 ? slotParts[1] : null;
+            session.State = BotState.ConfirmingReschedule;
+            await sessions.SaveAsync(chatId, session);
+
+            var summary =
+                $"Підтвердіть перенесення:\n\n" +
+                $"Лікар: {session.ReschedulingDoctorName}\n" +
+                $"Послуга: {session.ReschedulingServiceName}\n" +
+                $"Нова дата: {session.ReschedulingDate:dd.MM.yyyy}\n" +
+                $"Новий час: {session.ReschedulingSlotTime ?? "обраний"}";
+
+            await bot.SendMessage(chatId, summary,
+                replyMarkup: BotKeyboards.ConfirmCancel("rs_yes", "rs_no"),
+                cancellationToken: ct);
+            return;
+        }
+
+        if (data == "rs_yes" && session.State == BotState.ConfirmingReschedule)
+        {
+            await ConfirmRescheduleAsync(chatId, session, ct);
+            return;
+        }
+
+        if (data == "rs_no" && session.State == BotState.ConfirmingReschedule)
+        {
+            session.State = BotState.Idle;
+            await sessions.SaveAsync(chatId, session);
+            await bot.SendMessage(chatId, "Перенесення скасовано.",
+                replyMarkup: BotKeyboards.BookingSubmenu, cancellationToken: ct);
             return;
         }
 

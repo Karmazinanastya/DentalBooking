@@ -10,6 +10,7 @@ public sealed record SlotResponse(Guid SlotId, string LocalTime, DateTime StartU
 
 public sealed record AppointmentResponse(
     Guid Id,
+    Guid DoctorId,
     string DoctorFullName,
     string ClinicName,
     string ClinicAddress,

@@ -14,4 +14,13 @@ public sealed class BotSession
     public Guid? SelectedSlotId { get; set; }
     public string? SelectedSlotTime { get; set; }
     public Guid? SelectedAppointmentId { get; set; }
+
+    // Reschedule state
+    public Guid? ReschedulingAppointmentId { get; set; }
+    public Guid? ReschedulingDoctorId { get; set; }
+    public string? ReschedulingDoctorName { get; set; }
+    public string? ReschedulingServiceName { get; set; }
+    public DateOnly? ReschedulingDate { get; set; }
+    public Guid? ReschedulingSlotId { get; set; }
+    public string? ReschedulingSlotTime { get; set; }
 }

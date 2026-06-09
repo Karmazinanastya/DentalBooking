@@ -84,6 +84,13 @@ public static class BotKeyboards
                 $"{a.LocalDateTime} — {a.DoctorFullName}", $"cancel_{a.Id}")
         }));
 
+    public static InlineKeyboardMarkup FromAppointmentsReschedule(IReadOnlyList<AppointmentResponse> appointments) =>
+        new(appointments.Select(a => new[]
+        {
+            InlineKeyboardButton.WithCallbackData(
+                $"{a.LocalDateTime} — {a.DoctorFullName}", $"rs_{a.Id}")
+        }));
+
     public static InlineKeyboardMarkup ConfirmCancel(string yesData, string noData) =>
         new([[
             InlineKeyboardButton.WithCallbackData("✅ Так", yesData),

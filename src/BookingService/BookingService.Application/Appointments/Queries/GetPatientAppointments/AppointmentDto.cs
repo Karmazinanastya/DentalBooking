@@ -4,6 +4,7 @@ namespace BookingService.Application.Appointments.Queries.GetPatientAppointments
 
 public sealed record AppointmentDto(
     Guid Id,
+    Guid DoctorId,
     string DoctorFullName,
     string ClinicName,
     string ClinicAddress,

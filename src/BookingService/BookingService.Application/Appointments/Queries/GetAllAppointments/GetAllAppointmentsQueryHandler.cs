@@ -19,6 +19,7 @@ internal sealed class GetAllAppointmentsQueryHandler(IAppointmentRepository appo
             var localDate = TimeZoneInfo.ConvertTimeFromUtc(a.AppointmentDateUtc, tz);
             return new AppointmentDto(
                 a.Id,
+                a.DoctorId,
                 a.DoctorFullName,
                 a.ClinicName,
                 a.ClinicAddress,
